@@ -92,11 +92,7 @@ async def get_file_cb(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not file:
         return
     try:
-        await query.message.bot.forward_message(
-            chat_id=user.id,
-            from_chat_id=STORAGE_CHANNEL,
-            message_id=file["channel_msg_id"]
-        )
+       await ctx.bot.forward_message(chat_id=user.id, from_chat_id=STORAGE_CHANNEL, message_id=file["channel_msg_id"])
     except Exception as e:
         await query.message.reply_text(f"❌ {e}")
 
