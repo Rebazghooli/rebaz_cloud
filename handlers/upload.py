@@ -171,8 +171,8 @@ async def do_upload(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         f"📅 {now}"
     )
     try:
-        sent = await orig_msg.copy_to(
-            chat_id=STORAGE_CHANNEL, caption=caption, parse_mode="HTML"
+        sent = await ctx.bot.copy_message(
+            chat_id=STORAGE_CHANNEL, from_chat_id=orig_msg.chat_id,message_id = orig_msg.message_id ,caption=caption, parse_mode="HTML"
         )
         channel_msg_id = sent.message_id
     except Exception as e:
