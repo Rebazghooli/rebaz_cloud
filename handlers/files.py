@@ -17,11 +17,10 @@ def fmt(ts):
     return datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%d %H:%M")
 
 def file_action_kb(lang, file):
-    """Build the action keyboard for a single file."""
     share_btn = (
         InlineKeyboardButton(t("btn_unshare_file", lang), callback_data=f"share_{file['id']}")
         if file.get("is_shared") else
-        InlineKeyboardButton(t("btn_share_file",   lang), callback_data=f"share_{file['id']}")
+        InlineKeyboardButton(t("btn_share_file", lang), callback_data=f"share_{file['id']}")
     )
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(t("btn_get_file",    lang), callback_data=f"get_{file['id']}"),
@@ -92,12 +91,15 @@ async def get_file_cb(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not file:
         return
     try:
-       await ctx.bot.forward_message(chat_id=user.id, from_chat_id=STORAGE_CHANNEL, message_id=file["channel_msg_id"])
+        await ctx.bot.forward_message(
+            chat_id=user.id,
+            from_chat_id=STORAGE_CHANNEL,
+            message_id=file["channel_msg_id"]
+        )
     except Exception as e:
         await query.message.reply_text(f"❌ {e}")
 
 async def share_toggle_cb(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    """Toggle sharing for a file and show the share link or confirmation."""
     query = update.callback_query
     await query.answer()
     user  = query.from_user
@@ -110,17 +112,37 @@ async def share_toggle_cb(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if new_state is None:
         return
     if new_state:
-        bot_username = BOT_USERNAME or (await query.message.bot.get_me()).username
-        await query.answer(t("share_enabled", lang,
-                             bot_username=bot_username,
-                             code=file["unique_code"])[:200], show_alert=True)
-        # Also send as a proper message so they can copy the link easily
-        await query.message.reply_text(
-            t("share_enabled", lang, bot_username=bot_username, code=file["unique_code"]),
-            parse_mode="HTML"
-        )
+        bot_username = BOT_USERNAME or (await ctx.bot.get_me()).username
+        share_text = t("share_enabled", lang,
+                       bot_username=bot_username,
+                       code=file["unique_code"])
+        await query.answer(share_text[:200], show_alert=True)
+        await query.message.reply_text(share_text, parse_mode="HTML")
     else:
         await query.answer(t("share_disabled", lang), show_alert=True)
+
+async def handle_shared_file(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Handle /start file_CODE — send the shared file to whoever opened the link."""
+    user = update.effective_user
+    lang = get_lang(user.id)
+    args = ctx.args or []
+    if not args or not args[0].startswith("file_"):
+        return False
+    code = args[0].replace("file_", "")
+    from utils.db import get_file_by_code_public
+    file = get_file_by_code_public(code)
+    if not file or not file.get("is_shared"):
+        await update.message.reply_text("❌ این لینک معتبر نیست یا فایل حذف شده است.")
+        return True
+    try:
+        await ctx.bot.forward_message(
+            chat_id=user.id,
+            from_chat_id=STORAGE_CHANNEL,
+            message_id=file["channel_msg_id"]
+        )
+    except Exception as e:
+        await update.message.reply_text(f"❌ {e}")
+    return True
 
 async def del_ask(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
